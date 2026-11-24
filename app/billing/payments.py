@@ -20,7 +20,8 @@ def index(rows,survey):
         except ValueError as error:
             isolated.append(row | {'code':str(error)})
             continue
-        ready.append(row | {'arrival':at,'berth':fields['berth'],'cents':int(fields['cents'])})
+        ready.append(row | {'arrival':at,'berth':fields['berth'],'cents':int(fields['cents']),
+                            'payee':fields.get('payee')})
     chosen,rejected=resolve(ready,lambda r:r['fields']['receipt'],lambda r:(r['arrival'],r['vehicle'],r['berth'],r['cents']))
     attached=defaultdict(list)
     for row in chosen:

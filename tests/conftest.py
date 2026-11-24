@@ -16,6 +16,11 @@ def clean():
     return Clearing(bundle('clean'),b'fixture-2026')
 
 
+@pytest.fixture(scope='session')
+def handover():
+    return Clearing(bundle('handover'),b'fixture-2026')
+
+
 @pytest.fixture
 def client(tmp_path):
     with TestClient(create_app(tmp_path/'clearing.sqlite')) as client:

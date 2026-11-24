@@ -10,6 +10,9 @@ SCHEMAS={
     'bookings':'reservation,berth,plate,effective,start,end,state',
     'payments':'receipt,berth,plate,arrival,cents',
 }
+# 承包商交接为可选项：启用时回执可带 payee 列注明收方
+PAYMENT_OPTIONAL = {'payments': ('payee',)}
+PARTY_PATTERN = re.compile(r'[A-Za-z0-9一-鿿._-]{1,30}')
 
 
 @dataclass(frozen=True)
@@ -18,6 +21,7 @@ class Survey:
     start: datetime
     end: datetime
     berths: tuple[str,...]
+    handover: dict|None = None
 
     @classmethod
     def build(cls, obj):
@@ -32,4 +36,21 @@ class Survey:
                 raise ValueError
         except (KeyError,TypeError,ValueError):
             raise DocketError('SURVEY_BAD','清算区间或泊位列表错误') from None
-        return cls(name,start,end,tuple(ids))
+        handover=cls._handover(obj.get('handover'),start,end)
+        return cls(name,start,end,tuple(ids),handover)
+
+    @staticmethod
+    def _handover(raw,start,end):
+        if raw is None:
+            return None
+        try:
+            at=minute(raw['at'])
+            outgoing,incoming=raw['outgoing'],raw['incoming']
+            if not (start < at < end
+                    and isinstance(outgoing,str) and isinstance(incoming,str)
+                    and PARTY_PATTERN.fullmatch(outgoing) and PARTY_PATTERN.fullmatch(incoming)
+                    and outgoing != incoming):
+                raise ValueError
+        except (KeyError,TypeError,ValueError,AttributeError):
+            raise DocketError('HANDOVER_BAD','交接时刻或承包商名称错误') from None
+        return {'at':at,'outgoing':outgoing,'incoming':incoming}

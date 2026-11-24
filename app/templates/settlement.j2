@@ -1,2 +1,18 @@
 <h2>逐单差价</h2><div class="tablebox"><table><thead><tr><th>到达 / 泊位</th><th>应收</th><th>实收</th><th>差价</th><th>回执</th><th>结论</th></tr></thead><tbody>{% for row in report.settlement.lines %}<tr><td>{{ local(row.arrival) }} · {{ row.berth }}</td><td>{{ yuan(row.due_cents) }}</td><td>{{ yuan(row.paid_cents) }}</td><td class="{{ 'difference' if row.difference_cents else '' }}">{{ yuan(row.difference_cents) }}</td><td>{% for r in row.receipts %}{{ r.fields.receipt }} · 第 {{ r.line }} 行{% if not loop.last %} / {% endif %}{% else %}—{% endfor %}</td><td>{{ label[row.code] }}</td></tr>{% else %}<tr><td colspan="6">没有可结算停靠。</td></tr>{% endfor %}</tbody></table></div>
+{% if report.settlement.handover %}{% set h=report.settlement.handover %}
+<section class="panel handover"><h3>承包商交接分账 · 交接时刻 {{ local(h.at) }}</h3>
+<div class="tablebox"><table><thead><tr><th>承包商</th><th>应收（承管时段）</th><th>已认实收</th><th>待结</th></tr></thead><tbody>
+{% for a in h.accounts %}<tr><td>{{ a.party }}</td><td>{{ yuan(a.due_cents) }}</td><td>{{ yuan(a.recognized_cents) }}</td><td class="{{ 'difference' if a.outstanding_cents else '' }}">{{ yuan(a.outstanding_cents) }}</td></tr>{% endfor %}
+<tr class="sumline"><td>合计</td><td>{{ yuan(h.due_total_cents) }}</td><td>{{ yuan(h.recognized_total_cents) }}</td><td>待分金额 <strong>{{ yuan(h.pending_cents) }}</strong></td></tr>
+</tbody></table></div>
+<p class="hint">两家应收之和 {{ yuan(h.due_total_cents) }} 与原单应收一致；定向超额溢额与未注明收方的回执只进待分池，不抵另一家欠款。</p>
+<h4>逐单应收切分</h4>
+<div class="tablebox"><table><thead><tr><th>到达 / 泊位</th><th>原单应收</th><th>{{ h.parties[0] }}</th><th>{{ h.parties[1] }}</th></tr></thead><tbody>
+{% for s in h.stays %}<tr><td>{{ local(s.arrival) }} · {{ s.berth }}</td><td>{{ yuan(s.due_cents) }}</td><td>{{ yuan(s.split[h.parties[0]]) }}</td><td>{{ yuan(s.split[h.parties[1]]) }}</td></tr>{% endfor %}
+</tbody></table></div>
+<h4>回执去向</h4>
+<div class="tablebox"><table><thead><tr><th>回执</th><th>注明收方</th><th>金额</th><th>已认领</th><th>转待分</th><th>结论</th></tr></thead><tbody>
+{% for p in h.placements %}<tr><td>{{ p.receipt }} · 第 {{ p.line }} 行</td><td>{{ p.payee if p.payee else '未注明' }}</td><td>{{ yuan(p.cents) }}</td><td>{{ yuan(p.recognized_cents) }}</td><td>{{ yuan(p.pending_cents) }}</td><td>{{ label[p.code] }}</td></tr>{% endfor %}
+</tbody></table></div></section>
+{% endif %}
 <section class="panel exceptions"><h3>游离实收</h3>{% for row in report.settlement.orphans %}<p>回执 {{ row.fields.receipt }} · 第 {{ row.line }} 行 · {{ yuan(row.cents) }}</p>{% else %}<p>无游离回执。</p>{% endfor %}</section>{% if report.settlement.isolated %}{% set issues=report.settlement.isolated %}{% include 'issues.j2' %}{% endif %}

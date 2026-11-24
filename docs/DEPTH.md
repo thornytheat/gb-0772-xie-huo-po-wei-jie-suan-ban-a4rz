@@ -14,6 +14,7 @@
 | M5 应实收和泊位对账 | 查看逐单差价、游离回执与泊位容量 | `GET /api/cases/dirty/settlement` | `app/billing/settle.py` `app/billing/payments.py` | `tests/test_settlement.py` |
 | M6 批次留档复跑 | 原子落档、查历史及重放 | `POST /api/dockets` | `app/archive/docket.py` `app/archive/rerun.py` | `tests/test_docket.py` |
 | M7 理赔证据签发 | 签发并核验脱敏证据、摘要与勾稽 | `GET /api/export/{key}` | `app/archive/appeal.py` `app/archive/canonical.py` | `tests/test_appeal.py` |
+| M8 承包商交接分账 | 查两家应收、已认实收、待分金额与逐回执去向 | `GET /api/cases/handover/settlement` | `app/billing/handover.py` `app/source/structure.py` | `tests/test_handover.py` |
 
 ## 陷阱登记
 
@@ -28,6 +29,9 @@
 | TRAP-14 | 同一检测编号出现两个结束时刻 | 输入顺序改变结果 | 冲突整组隔离 | `app/source/dedup.py` | `tests/test_intake.py::test_conflicting_sensor_event_never_last_wins` |
 | TRAP-19 | 同泊多车和同车跨泊并存 | 多扣泊位分钟或漏掉争议 | 在各泊位分钟以同泊多车优先 | `app/curb/grid.py` | `tests/test_occupancy.py::test_collision_priority_matches_both_berths` |
 | TRAP-23 | 两杆结束和开始同一分钟 | 重算端点或将一次停靠切开 | 半开并连续合并 | `app/curb/merge.py` | `tests/test_occupancy.py::test_touching_scans_single_stay` |
+| TRAP-26 | 换承包商后跨交接停靠只出一笔账 | 两家重复或漏算应收 | 分段按交接分钟逐分钟切分，切分之和守恒 | `app/billing/handover.py` | `tests/test_handover.py::test_every_stay_split_conserves_original_due` |
+| TRAP-27 | 回执注明一家却超过其应收 | 溢额被拿去抵另一家欠款 | 只认到应收上限，溢额进待分池 | `app/billing/handover.py` | `tests/test_handover.py::test_directed_overflow_never_covers_other_party_debt` |
+| TRAP-28 | 部分付款回执没写给谁 | 系统猜配导致多划一家 | 整笔待分，不替任何一方认领 | `app/billing/handover.py` | `tests/test_handover.py::test_undirected_receipt_goes_whole_to_pending` |
 
 ## 对账规则
 
@@ -37,4 +41,12 @@
 
 ## 已知边界
 
-只使用完整杆侧区间，传感器失明但缺少额外证据的分钟按空闲计算；覆盖不完整的窗口应由外部系统重采。回执关联使用准确到达分钟，不模糊猜测。退款、法定票据签章及跨区共享付费档位由外部流程处理。
+只使用完整杆侧区间，传感器失明但缺少额外证据的分钟按空闲计算；覆盖不完整的窗口应由外部系统重采。回执关联使用准确到达分钟，不模糊猜测。退款、法定票据签章及跨区共享付费档位由外部流程处理。待分金额的人工二次分配（补充收方凭据后的再划分）由外部工单驱动，本系统只保证当前批次的守恒与可追溯。
+
+## 交接样例对账
+
+- 交接时刻 2026-12-01 00:20（UTC+08:00），出包方「城北运营一队」、接包方「滨港停车服务」。
+- 两家应收 1200 + 1040 = 2240 分，与原单应收相等；首免 10 分钟与 7 分钟争议按所在时段分别归属。
+- 已认实收 2100 分（出包方 1200、接包方 900），待分 750 分：未注明收方 520 + 140、未知收方 40、定向超额溢额 50。
+- 回执 0014 注明给出包方但付 400 分，其剩余应收仅 350 分：认 350、溢额 50 待分，接包方 140 分欠款不动用该溢额。
+- 同批重跑复用同一归档编号与同一分配，理赔证据额外通过 `HANDOVER_*` 四项守恒校验。

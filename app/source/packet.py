@@ -10,7 +10,7 @@ NAMES=('survey',*SCHEMAS)
 
 
 def bundle(name):
-    if name not in {'dirty','clean'}:
+    if name not in {'dirty','clean','handover'}:
         raise DocketError('SAMPLE_BAD','找不到选定的清算样例',404)
     return {key:(SAMPLES/name/(key+('.json' if key=='survey' else '.csv'))).read_bytes().decode()
             for key in NAMES}

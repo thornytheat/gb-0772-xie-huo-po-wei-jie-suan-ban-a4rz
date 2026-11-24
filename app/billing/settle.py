@@ -1,5 +1,6 @@
 from collections import Counter
 
+from app.billing.handover import handover_account
 from app.billing.payments import index
 from app.curb.timeaxis import count
 
@@ -31,4 +32,6 @@ def accounting(prices,payments,survey,coverage,disputes):
     totals={key:sum(r[key] for r in balance) for key in ('scheduled','vacant','disputed','free','base','upgrade')}
     money={key:sum(r[key] for r in lines) for key in ('due_cents','paid_cents','difference_cents')}
     money['orphan_cents']=sum(row['cents'] for row in orphans)
-    return {'lines':lines,'isolated':isolated,'orphans':orphans,'berths':balance,'totals':totals,'money':money}
+    result={'lines':lines,'isolated':isolated,'orphans':orphans,'berths':balance,'totals':totals,'money':money}
+    result['handover']=handover_account(result,survey.handover,prices)
+    return result
